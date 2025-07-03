@@ -1,15 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import {
     TextField, Button, MenuItem, Grid, Typography, Paper, Divider,
-    Snackbar, Alert, CircularProgress, Autocomplete
+    Snackbar, Alert, CircularProgress, Autocomplete, IconButton, InputAdornment
 } from '@mui/material';
 import axios from 'axios';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import esLocale from 'date-fns/locale/es';
+import ClearIcon from '@mui/icons-material/Clear';
+import { format } from 'date-fns';
 
 const formasPago = ['Efectivo', 'Tarjeta de Crédito', 'Transferencia', 'Otro'];
+
+// Función para validar RUT chileno
+const validateRut = (rut) => {
+    if (!rut || rut.trim() === '') return false;
+
+    // Eliminar puntos y guión
+    const cleanRut = rut.replace(/\./g, '').replace(/-/g, '').toUpperCase();
+
+    // Separar cuerpo y dígito verificador
+    const [cuerpo, dv] = cleanRut.split('-').length === 1 ?
+        [cleanRut.slice(0, -1), cleanRut.slice(-1)] :
+        cleanRut.split('-');
+
+    if (!cuerpo || !dv) return false;
+
+    // Calcular DV esperado
+    let suma = 0;
+    let multiplicador = 2;
+
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+        suma += parseInt(cuerpo.charAt(i)) * multiplicador;
+        multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+    }
+
+    const dvEsperado = 11 - (suma % 11);
+    const dvCalculado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'K' : dvEsperado.toString();
+
+    return dvCalculado === dv;
+};
 
 const ArriendoForm = () => {
     const [form, setForm] = useState({
@@ -18,7 +49,7 @@ const ArriendoForm = () => {
         clienteEmail: '',
         clienteTelefono: '',
         bicicleta: null,
-        fechaInicio: null,
+        fechaInicio: new Date(),
         fechaFin: null,
         formaPago: '',
         deposito: '',
@@ -33,6 +64,7 @@ const ArriendoForm = () => {
     const [errors, setErrors] = useState({});
     const [userSearchLoading, setUserSearchLoading] = useState(false);
     const [isExistingUser, setIsExistingUser] = useState(false);
+    const [rutValid, setRutValid] = useState(true);
 
     // Cargar bicicletas disponibles
     useEffect(() => {
@@ -51,13 +83,40 @@ const ArriendoForm = () => {
         fetchBicicletas();
     }, []);
 
+    const formatRut = (rut) => {
+        // Eliminar caracteres no numéricos y la K
+        const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+
+        if (cleanRut.length <= 1) return cleanRut;
+
+        let result = cleanRut.slice(-4, -1) + '-' + cleanRut.slice(-1);
+        for (let i = 4; i < cleanRut.length; i += 3) {
+            result = cleanRut.slice(-3 - i, -i) + '.' + result;
+        }
+
+        return result;
+    };
+
     // Buscar usuario por RUT (versión básica)
     const buscarUsuarioPorRut = async (rut) => {
         if (!rut || rut.length < 4) return;
 
+        // Validar RUT antes de buscar
+        const isValid = validateRut(rut);
+        setRutValid(isValid);
+
+        if (!isValid) {
+            setAlert({
+                open: true,
+                success: false,
+                message: 'El RUT ingresado no es válido'
+            });
+            return;
+        }
+
         setUserSearchLoading(true);
         try {
-            const response = await axios.get(`http://localhost:8080/api/auth/buscar-por-rut?rut=${rut}`);
+            const response = await axios.get(`http://localhost:8081/api/auth/buscar-por-rut?rut=${rut}`);
             if (response.data) {
                 setForm({
                     ...form,
@@ -94,6 +153,11 @@ const ArriendoForm = () => {
     const handleRutBlur = () => {
         buscarUsuarioPorRut(form.clienteRut);
     };
+
+    const handleClearField = (fieldName) => {
+        setForm({ ...form, [fieldName]: '' });
+    };
+
     const handleBicicletaChange = (event, newValue) => {
         setForm({
             ...form,
@@ -101,6 +165,18 @@ const ArriendoForm = () => {
             deposito: newValue?.deposito || '',
             precioDia: newValue?.precioDia || ''
         });
+    };
+
+    const handleRutChange = (e) => {
+        const rawValue = e.target.value;
+        // Eliminar formato actual para procesar
+        const cleanValue = rawValue.replace(/[^0-9kK]/g, '').toUpperCase();
+
+        // Formatear el RUT
+        const formattedValue = formatRut(cleanValue);
+
+        setForm({ ...form, clienteRut: formattedValue });
+        setRutValid(true); // Resetear validación al cambiar
     };
 
     const calcularTotal = () => {
@@ -115,7 +191,11 @@ const ArriendoForm = () => {
     const validateForm = () => {
         const newErrors = {};
         if (!form.clienteNombre) newErrors.clienteNombre = 'Nombre es requerido';
-        if (!form.clienteRut) newErrors.clienteRut = 'RUT es requerido';
+        if (!form.clienteRut) {
+            newErrors.clienteRut = 'RUT es requerido';
+        } else if (!validateRut(form.clienteRut)) {
+            newErrors.clienteRut = 'RUT no válido';
+        }
         if (!form.bicicleta) newErrors.bicicleta = 'Bicicleta es requerida';
         if (!form.fechaInicio) newErrors.fechaInicio = 'Fecha inicio es requerida';
         if (!form.fechaFin) newErrors.fechaFin = 'Fecha fin es requerida';
@@ -143,6 +223,7 @@ const ArriendoForm = () => {
             total: 0
         });
         setIsExistingUser(false);
+        setRutValid(true);
     };
 
     const handleSubmit = async () => {
@@ -184,6 +265,11 @@ const ArriendoForm = () => {
         }
     };
 
+    // Función para limpiar el campo de fecha
+    const handleClearDate = (fieldName) => {
+        setForm({ ...form, [fieldName]: null });
+    };
+
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
             <Paper elevation={3} sx={{ maxWidth: 1000, mx: 'auto', mt: 4, p: 4 }}>
@@ -204,13 +290,27 @@ const ArriendoForm = () => {
                             label="RUT"
                             name="clienteRut"
                             value={form.clienteRut}
-                            onChange={handleChange}
+                            onChange={handleRutChange}
                             onBlur={handleRutBlur}
-                            error={!!errors.clienteRut}
-                            helperText={errors.clienteRut || (userSearchLoading ? 'Buscando usuario...' : '')}
+                            error={!!errors.clienteRut || !rutValid}
+                            helperText={errors.clienteRut || (userSearchLoading ? 'Buscando usuario...' : 'Ej: 12.345.678-9')}
                             size="medium"
                             InputProps={{
-                                endAdornment: userSearchLoading ? <CircularProgress size={20} /> : null
+                                endAdornment: (
+                                    <>
+                                        {form.clienteRut && (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => handleClearField('clienteRut')}
+                                                    edge="end"
+                                                >
+                                                    <ClearIcon />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        )}
+                                        {userSearchLoading && <CircularProgress size={20} />}
+                                    </>
+                                )
                             }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
@@ -232,6 +332,18 @@ const ArriendoForm = () => {
                             type="email"
                             disabled={isExistingUser}
                             size="medium"
+                            InputProps={{
+                                endAdornment: form.clienteEmail && !isExistingUser && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => handleClearField('clienteEmail')}
+                                            edge="end"
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     height: '56px',
@@ -250,6 +362,18 @@ const ArriendoForm = () => {
                             onChange={handleChange}
                             disabled={isExistingUser}
                             size="medium"
+                            InputProps={{
+                                endAdornment: form.clienteTelefono && !isExistingUser && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => handleClearField('clienteTelefono')}
+                                            edge="end"
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     height: '56px',
@@ -274,6 +398,18 @@ const ArriendoForm = () => {
                             helperText={errors.clienteNombre}
                             disabled={isExistingUser}
                             size="medium"
+                            InputProps={{
+                                endAdornment: form.clienteNombre && !isExistingUser && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => handleClearField('clienteNombre')}
+                                            edge="end"
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     height: '56px',
@@ -288,28 +424,23 @@ const ArriendoForm = () => {
 
                 <Grid container spacing={3} sx={{ mb: 3 }}>
                     <Grid item xs={12} md={3}>
-                        <DatePicker
+                        <TextField
+                            fullWidth
                             label="Fecha Inicio"
-                            value={form.fechaInicio}
-                            onChange={(date) => {
-                                setForm({ ...form, fechaInicio: date });
-                                calcularTotal();
+                            value={form.fechaInicio ? format(new Date(form.fechaInicio), 'dd/MM/yyyy') : ''}
+                            InputProps={{
+                                readOnly: true,
+                                sx: {
+                                    backgroundColor: 'action.hover', // Fondo gris claro (como un campo deshabilitado)
+                                    cursor: 'not-allowed', // Cambia el cursor para indicar que no es editable
+                                },
                             }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    fullWidth
-                                    error={!!errors.fechaInicio}
-                                    helperText={errors.fechaInicio}
-                                    size="medium"
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            height: '56px',
-                                            fontSize: '1.1rem'
-                                        }
-                                    }}
-                                />
-                            )}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    height: '56px',
+                                    fontSize: '1.1rem',
+                                },
+                            }}
                         />
                     </Grid>
                     <Grid item xs={12} md={3}>
@@ -327,6 +458,18 @@ const ArriendoForm = () => {
                                     error={!!errors.fechaFin}
                                     helperText={errors.fechaFin}
                                     size="medium"
+                                    InputProps={{
+                                        endAdornment: form.fechaFin && (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => handleClearDate('fechaFin')}
+                                                    edge="end"
+                                                >
+                                                    <ClearIcon />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        )
+                                    }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             height: '56px',
@@ -349,6 +492,18 @@ const ArriendoForm = () => {
                             error={!!errors.formaPago}
                             helperText={errors.formaPago}
                             size="medium"
+                            InputProps={{
+                                endAdornment: form.formaPago && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => handleClearField('formaPago')}
+                                            edge="end"
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     height: '56px',
@@ -387,6 +542,24 @@ const ArriendoForm = () => {
                                     error={!!errors.bicicleta}
                                     helperText={errors.bicicleta}
                                     size="medium"
+                                    InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {params.InputProps.endAdornment}
+                                                {form.bicicleta && (
+                                                    <InputAdornment position="end">
+                                                        <IconButton
+                                                            onClick={() => handleBicicletaChange(null, null)}
+                                                            edge="end"
+                                                        >
+                                                            <ClearIcon />
+                                                        </IconButton>
+                                                    </InputAdornment>
+                                                )}
+                                            </>
+                                        )
+                                    }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             height: '56px',
@@ -403,7 +576,20 @@ const ArriendoForm = () => {
                             label="Depósito Garantía ($)"
                             name="deposito"
                             value={form.deposito ? `$${form.deposito.toLocaleString('es-CL')}` : ''}
-                            InputProps={{ readOnly: true }}
+                            InputProps={{
+                                readOnly: true,
+                                endAdornment: form.deposito && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => setForm({...form, deposito: ''})}
+                                            edge="end"
+                                            disabled
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             size="medium"
                             sx={{
                                 maxWidth: '200px',
@@ -421,7 +607,20 @@ const ArriendoForm = () => {
                             label="Precio por día ($)"
                             name="precioDia"
                             value={form.precioDia ? `$${form.precioDia.toLocaleString('es-CL')}` : ''}
-                            InputProps={{ readOnly: true }}
+                            InputProps={{
+                                readOnly: true,
+                                endAdornment: form.precioDia && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => setForm({...form, precioDia: ''})}
+                                            edge="end"
+                                            disabled
+                                        >
+                                            <ClearIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                             size="medium"
                             sx={{
                                 maxWidth: '200px',
@@ -470,7 +669,6 @@ const ArriendoForm = () => {
                 >
                     {loading ? <CircularProgress size={24} /> : 'Registrar Arriendo'}
                 </Button>
-
 
                 <Snackbar
                     open={alert.open}
