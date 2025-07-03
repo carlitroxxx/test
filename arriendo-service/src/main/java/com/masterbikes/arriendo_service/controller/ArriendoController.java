@@ -26,11 +26,11 @@ public class ArriendoController {
     public ResponseEntity<?> crearArriendo(@RequestBody ArriendoRequest request) {
         try {
             Arriendo nuevoArriendo = arriendoService.crearArriendo(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(nuevoArriendo);
+            return new ResponseEntity<>(nuevoArriendo, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            return ResponseEntity.internalServerError().body(e.getMessage());
         }
     }
 
