@@ -9,7 +9,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="carrito-service" />
       </profile>
-      <profile name="Annotation profile for inventario-service" enabled="true">
+      <profile name="Annotation profile for arriendo-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />

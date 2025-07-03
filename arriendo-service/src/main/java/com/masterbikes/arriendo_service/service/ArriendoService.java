@@ -4,8 +4,10 @@ import com.masterbikes.arriendo_service.dto.ArriendoRequest;
 import com.masterbikes.arriendo_service.model.Arriendo;
 import com.masterbikes.arriendo_service.repository.ArriendoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Date;
@@ -19,7 +21,8 @@ public class ArriendoService {
 
     private final ArriendoRepository arriendoRepository;
     private final RestTemplate restTemplate;
-    private static final String INVENTARIO_SERVICE_URL = "http://localhost:8080/api/inventario/bicicletas/arriendo/";
+    @Value("${app.inventario-service.url}") // Usa la variable de entorno
+    private String inventarioServiceBaseUrl;
 
 
     @Autowired
@@ -85,19 +88,22 @@ public class ArriendoService {
         return arriendoRepository.save(arriendo);
     }
 
+    private String getBicicletaUrl(String bicicletaId) {
+        return inventarioServiceBaseUrl + "/bicicletas/arriendo/" + bicicletaId;
+    }
+
     private Map<String, Object> obtenerDatosBicicleta(String bicicletaId) {
         try {
-            String url = INVENTARIO_SERVICE_URL + bicicletaId;
-
-            // Cambia Object.class por Map.class para mapear correctamente la respuesta
+            String url = getBicicletaUrl(bicicletaId);
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
             if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Error al obtener bicicleta: " + response.getStatusCode());
+                throw new RuntimeException("Error al obtener bicicleta. Código: " + response.getStatusCode());
             }
 
             return response.getBody();
-
+        } catch (ResourceAccessException e) {
+            throw new RuntimeException("No se pudo conectar con el servicio de inventario. URL intentada: " + getBicicletaUrl(bicicletaId));
         } catch (Exception e) {
             throw new RuntimeException("Error al obtener datos de la bicicleta: " + e.getMessage());
         }
