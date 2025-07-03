@@ -169,14 +169,12 @@ const ArriendoForm = () => {
 
     const handleRutChange = (e) => {
         const rawValue = e.target.value;
-        // Eliminar formato actual para procesar
         const cleanValue = rawValue.replace(/[^0-9kK]/g, '').toUpperCase();
-
-        // Formatear el RUT
         const formattedValue = formatRut(cleanValue);
 
         setForm({ ...form, clienteRut: formattedValue });
         setRutValid(true); // Resetear validación al cambiar
+        setErrors(prev => ({ ...prev, clienteRut: '' })); // Limpiar error específico
     };
 
     const calcularTotal = () => {
@@ -190,12 +188,14 @@ const ArriendoForm = () => {
 
     const validateForm = () => {
         const newErrors = {};
+
         if (!form.clienteNombre) newErrors.clienteNombre = 'Nombre es requerido';
         if (!form.clienteRut) {
             newErrors.clienteRut = 'RUT es requerido';
         } else if (!validateRut(form.clienteRut)) {
             newErrors.clienteRut = 'RUT no válido';
         }
+
         if (!form.bicicleta) newErrors.bicicleta = 'Bicicleta es requerida';
         if (!form.fechaInicio) newErrors.fechaInicio = 'Fecha inicio es requerida';
         if (!form.fechaFin) newErrors.fechaFin = 'Fecha fin es requerida';
@@ -227,7 +227,15 @@ const ArriendoForm = () => {
     };
 
     const handleSubmit = async () => {
-        if (!validateForm()) return;
+        const isValid = validateForm();
+        if (!isValid) {
+            setAlert({
+                open: true,
+                success: false,
+                message: 'Por favor, corrige los errores en el formulario.'
+            });
+            return;
+        }
         setLoading(true);
 
         try {
@@ -292,8 +300,11 @@ const ArriendoForm = () => {
                             value={form.clienteRut}
                             onChange={handleRutChange}
                             onBlur={handleRutBlur}
-                            error={!!errors.clienteRut || !rutValid}
-                            helperText={errors.clienteRut || (userSearchLoading ? 'Buscando usuario...' : 'Ej: 12.345.678-9')}
+                            error={!!errors.clienteRut || (!rutValid && form.clienteRut)}
+                            helperText={
+                                errors.clienteRut ||
+                                (!rutValid && form.clienteRut ? 'RUT no válido' : 'Ej: 12.345.678-9')
+                            }
                             size="medium"
                             InputProps={{
                                 endAdornment: (
