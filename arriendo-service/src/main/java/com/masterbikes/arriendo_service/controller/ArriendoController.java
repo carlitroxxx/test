@@ -34,12 +34,6 @@ public class ArriendoController {
         }
     }
 
-    @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<List<Arriendo>> obtenerArriendosPorUsuario(
-            @PathVariable String usuarioId) {
-        List<Arriendo> arriendos = arriendoService.obtenerArriendosPorUsuario(usuarioId);
-        return ResponseEntity.ok(arriendos);
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerArriendoPorId(@PathVariable String id) {
@@ -68,6 +62,12 @@ public class ArriendoController {
     public ResponseEntity<List<Arriendo>> obtenerArriendosPorEstado(
             @PathVariable String estado) {
         List<Arriendo> arriendos = arriendoService.obtenerArriendosPorEstado(estado);
+        return ResponseEntity.ok(arriendos);
+    }
+    @GetMapping("/cliente/{rut}")
+    public ResponseEntity<List<Arriendo>> obtenerArriendosPorCliente(
+            @PathVariable String rut) {
+        List<Arriendo> arriendos = arriendoService.obtenerArriendosPorRut(rut);
         return ResponseEntity.ok(arriendos);
     }
 }

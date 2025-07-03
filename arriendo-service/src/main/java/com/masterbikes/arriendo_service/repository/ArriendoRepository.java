@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ArriendoRepository extends MongoRepository<Arriendo, String> {
-    Optional<Arriendo> findTopByOrderByNumeroArriendoDesc(); // Cambiado a Optional
-    List<Arriendo> findByUsuarioId(String usuarioId);
+    Optional<Arriendo> findTopByOrderByNumeroArriendoDesc();
+    List<Arriendo> findByClienteRut(String rut); // Nuevo método
     List<Arriendo> findByEstado(String estado);
 }
 

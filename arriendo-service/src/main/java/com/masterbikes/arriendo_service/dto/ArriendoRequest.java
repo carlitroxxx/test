@@ -6,11 +6,9 @@ import java.util.Date;
 @Data
 public class ArriendoRequest {
     private String bicicletaId;
-    private String usuarioId; // Opcional - si no viene, se crea como cliente externo
-
-    // Datos del cliente (si no viene usuarioId)
+    // Eliminar usuarioId
+    private String clienteRut; // Ahora será obligatorio
     private String clienteNombre;
-    private String clienteRut;
     private String clienteEmail;
     private String clienteTelefono;
 

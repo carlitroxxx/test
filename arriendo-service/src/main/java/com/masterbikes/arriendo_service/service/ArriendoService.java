@@ -29,6 +29,9 @@ public class ArriendoService {
     }
 
     public Arriendo crearArriendo(ArriendoRequest request) {
+        if (request.getClienteRut() == null || request.getClienteRut().isEmpty()) {
+            throw new IllegalArgumentException("El RUT del cliente es obligatorio");
+        }
         // 1. Validar fechas
         if (request.getFechaFin().before(request.getFechaInicio())) {
             throw new IllegalArgumentException("La fecha de fin debe ser posterior a la fecha de inicio");
@@ -82,33 +85,10 @@ public class ArriendoService {
     private Map<String, String> obtenerDatosCliente(ArriendoRequest request) {
         Map<String, String> clienteInfo = new HashMap<>();
 
-        if (request.getUsuarioId() != null && !request.getUsuarioId().isEmpty()) {
-            // Obtener datos del usuario registrado
-            ResponseEntity<?> response = restTemplate.getForEntity(
-                    USUARIO_SERVICE_URL + request.getUsuarioId(),
-                    Object.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() &&
-                    response.getBody() instanceof Map<?, ?> body) {
-
-                @SuppressWarnings("unchecked")
-                Map<String, Object> usuario = (Map<String, Object>) body;
-
-                clienteInfo.put("nombre", usuario.get("nombreCompleto").toString());
-                clienteInfo.put("rut", usuario.get("rut").toString());
-                clienteInfo.put("email", usuario.get("email").toString());
-                clienteInfo.put("telefono", usuario.get("telefono").toString());
-            }
-        }
-
-        // Si no se obtuvieron datos de usuario o es cliente externo
-        if (clienteInfo.isEmpty()) {
-            clienteInfo.put("nombre", request.getClienteNombre());
-            clienteInfo.put("rut", request.getClienteRut());
-            clienteInfo.put("email", request.getClienteEmail());
-            clienteInfo.put("telefono", request.getClienteTelefono());
-        }
+        clienteInfo.put("nombre", request.getClienteNombre());
+        clienteInfo.put("rut", request.getClienteRut());
+        clienteInfo.put("email", request.getClienteEmail());
+        clienteInfo.put("telefono", request.getClienteTelefono());
 
         return clienteInfo;
     }
@@ -135,7 +115,6 @@ public class ArriendoService {
         Arriendo arriendo = new Arriendo();
         arriendo.setNumeroArriendo(numeroArriendo);
         arriendo.setBicicletaId(request.getBicicletaId());
-        arriendo.setUsuarioId(request.getUsuarioId());
         arriendo.setClienteNombre(clienteInfo.get("nombre"));
         arriendo.setClienteRut(clienteInfo.get("rut"));
         arriendo.setClienteEmail(clienteInfo.get("email"));
@@ -153,10 +132,6 @@ public class ArriendoService {
         return arriendo;
     }
 
-    public List<Arriendo> obtenerArriendosPorUsuario(String usuarioId) {
-        return arriendoRepository.findByUsuarioId(usuarioId);
-    }
-
     public Optional<Arriendo> obtenerArriendoPorId(String id) {
         return arriendoRepository.findById(id);
     }
@@ -169,7 +144,9 @@ public class ArriendoService {
                 })
                 .orElseThrow(() -> new RuntimeException("Arriendo no encontrado"));
     }
-
+    public List<Arriendo> obtenerArriendosPorRut(String rut) {
+        return arriendoRepository.findByClienteRut(rut);
+    }
     public List<Arriendo> obtenerArriendosPorEstado(String estado) {
         return arriendoRepository.findByEstado(estado);
     }

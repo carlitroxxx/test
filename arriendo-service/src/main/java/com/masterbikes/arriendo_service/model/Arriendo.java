@@ -12,11 +12,10 @@ public class Arriendo {
     private String id;
     private Long numeroArriendo; // Auto-incremental
     private String bicicletaId; // Referencia a bicicleta en inventario-service
-    private String usuarioId; // Referencia a usuario en usuario-service
 
     // Datos del cliente (pueden venir de usuario-service o ingresarse manualmente)
-    private String clienteNombre;
     private String clienteRut;
+    private String clienteNombre;
     private String clienteEmail;
     private String clienteTelefono;
 
