@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  inventario-service:
+    build: ./inventario-service
+    container_name: inventario-service
+    ports:
+      - "8080:8080"  # Asegúrate que coincide con tu configuración
+    depends_on:
+      - mongo
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/masterbikes_inventario
+  usuario-service:
+    build: ./usuario-service
+    container_name: usuario-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongo
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/masterbikes_usuario
+
+  arriendo-service:
+    build: ./arriendo-service
+    container_name: arriendo-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mongo
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/masterbikes_arriendo
+  carrito-service:
+    build: ./carrito-service
+    container_name: carrito-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - mongo
+      - inventario-service
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/masterbikes_carrito
+      - APP_INVENTARIO_SERVICE_URL=http://inventario-service:8080/api/inventario
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: react-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - NODE_ENV=development
+    command: npm start
+    depends_on:
+      - inventario-service
+      - carrito-service
+
+volumes:
+  mongo_data:
